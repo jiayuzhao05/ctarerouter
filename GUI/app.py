@@ -7,15 +7,19 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///connections.db'
 db = SQLAlchemy(app)
 
-# Database model
-class Connection(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    from_lat = db.Column(db.Float, nullable=False)
-    from_lng = db.Column(db.Float, nullable=False)
-    to_lat = db.Column(db.Float, nullable=False)
-    to_lng = db.Column(db.Float, nullable=False)
+# --- Database Models ---
 
-# Create the database tables
+class Station(db.Model):
+    station_id = db.Column(db.Integer, primary_key=True)
+    lat = db.Column(db.Float, nullable=False)
+    lng = db.Column(db.Float, nullable=False)
+
+class Route(db.Model):
+    route_id = db.Column(db.Integer, primary_key=True)
+    station_from_id = db.Column(db.Integer, db.ForeignKey('station.station_id'), nullable=False)
+    station_to_id = db.Column(db.Integer, db.ForeignKey('station.station_id'), nullable=False)
+
+# --- Create Tables ---
 with app.app_context():
     db.create_all()
 
@@ -28,17 +32,44 @@ def save():
     data = request.get_json()
     print("Received data:", data)
 
-    # Optional: Clear old connections first if you want
-    Connection.query.delete()
+    # Clear existing data (optional)
+    Route.query.delete()
+    Station.query.delete()
+    db.session.commit()
 
+    # In-memory lookup to avoid inserting duplicate stations
+    station_lookup = {}
+    station_counter = 1
+
+    # First, go through all connections and add unique stations
     for conn in data:
-        new_conn = Connection(
-            from_lat=conn['from']['lat'],
-            from_lng=conn['from']['lng'],
-            to_lat=conn['to']['lat'],
-            to_lng=conn['to']['lng']
+        from_key = (conn['from']['lat'], conn['from']['lng'])
+        to_key = (conn['to']['lat'], conn['to']['lng'])
+
+        if from_key not in station_lookup:
+            station = Station(station_id=station_counter, lat=from_key[0], lng=from_key[1])
+            db.session.add(station)
+            station_lookup[from_key] = station_counter
+            station_counter += 1
+
+        if to_key not in station_lookup:
+            station = Station(station_id=station_counter, lat=to_key[0], lng=to_key[1])
+            db.session.add(station)
+            station_lookup[to_key] = station_counter
+            station_counter += 1
+
+    db.session.commit()
+
+    # Now create routes using the station IDs
+    for conn in data:
+        from_key = (conn['from']['lat'], conn['from']['lng'])
+        to_key = (conn['to']['lat'], conn['to']['lng'])
+
+        route = Route(
+            station_from_id=station_lookup[from_key],
+            station_to_id=station_lookup[to_key]
         )
-        db.session.add(new_conn)
+        db.session.add(route)
 
     db.session.commit()
 
@@ -46,14 +77,20 @@ def save():
 
 @app.route('/connections', methods=['GET'])
 def get_connections():
-    all_connections = Connection.query.all()
-    result = []
-    for conn in all_connections:
-        result.append({
-            "from": {"lat": conn.from_lat, "lng": conn.from_lng},
-            "to": {"lat": conn.to_lat, "lng": conn.to_lng}
+    # Fetch routes and reconstruct connections
+    routes = Route.query.all()
+    connections = []
+
+    for route in routes:
+        from_station = Station.query.get(route.station_from_id)
+        to_station = Station.query.get(route.station_to_id)
+
+        connections.append({
+            "from": {"lat": from_station.lat, "lng": from_station.lng},
+            "to": {"lat": to_station.lat, "lng": to_station.lng}
         })
-    return jsonify(result)
+
+    return jsonify(connections)
 
 if __name__ == '__main__':
     app.run(debug=True)
