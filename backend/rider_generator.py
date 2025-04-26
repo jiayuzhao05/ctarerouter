@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 
 TOTAL_RIDERS = 2664500
+BATCH_SIZE = 100000
 DATE = datetime.now().date()
 
 # timeslots proportion
@@ -26,7 +27,7 @@ def generate_departure_time():
     end_time = datetime.strptime(period[1], "%H:%M")
 
     if period[1] == "24:00":
-        end_time = datetime.strptime("23:59", "%H:%M")  # 处理24:00特殊情况
+        end_time = datetime.strptime("23:59", "%H:%M")  
 
     time_diff = (end_time - start_time).seconds
     random_seconds = random.randint(0, time_diff)
@@ -39,44 +40,49 @@ def generate_riders():
     print("read station ridership...")
     stations = pd.read_csv(STATIONS_FILE)
 
-    # get station name and ridership as weight
     station_names = stations['station_name'].tolist()
     weights = stations['ridership'].tolist()
-
-    # generate into numpy array for proportion
     weights = np.array(weights)
     weights = weights / weights.sum()
 
-    riders = []
+    total_batches = TOTAL_RIDERS // BATCH_SIZE
 
-    print(f"generate {TOTAL_RIDERS} riders...")
+    first_batch = True
 
-    for _ in range(TOTAL_RIDERS):
-        start_station = random.choices(station_names, weights=weights, k=1)[0]
-        end_station = start_station
+    for batch in range(total_batches + 1):
+        batch_size = BATCH_SIZE if batch < total_batches else TOTAL_RIDERS % BATCH_SIZE
+        if batch_size == 0:
+            break
 
-        while end_station == start_station:
-            end_station = random.choice(station_names)
+        riders = []
 
-        departure_time = generate_departure_time()
+        for _ in range(batch_size):
+            start_station = random.choices(station_names, weights=weights, k=1)[0]
+            end_station = start_station
 
-        rider = {
-            'start_station': start_station,
-            'end_station': end_station,
-            'departure_time': departure_time
-        }
+            while end_station == start_station:
+                end_station = random.choice(station_names)
 
-        riders.append(rider)
+            departure_time = generate_departure_time()
 
-        if len(riders) % 500000 == 0:
-            print(f"generated {len(riders)} riders...")
+            riders.append({
+                'start_station': start_station,
+                'end_station': end_station,
+                'departure_time': departure_time
+            })
 
-    print("completed，saved in csv...")
-    df_riders = pd.DataFrame(riders)
-    df_riders.to_csv(OUTPUT_FILE, index=False)
-    print(f"saved in {OUTPUT_FILE}")
+        df_batch = pd.DataFrame(riders)
 
+        if first_batch:
+            df_batch.to_csv(OUTPUT_FILE, index=False, mode='w')
+            first_batch = False
+        else:
+            df_batch.to_csv(OUTPUT_FILE, index=False, header=False, mode='a')
 
+        print(f"Progress: {(batch + 1) * BATCH_SIZE}/{TOTAL_RIDERS} riders...")
+
+    print(f"Riderdata generated, {OUTPUT_FILE}")
 
 if __name__ == "__main__":
     generate_riders()
+
