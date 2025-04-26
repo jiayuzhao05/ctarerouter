@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leaflet + Flask Demo</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map { height: 500px; }
+        #saveBtn { margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+<button id="saveBtn">Save Connections</button>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    var map = L.map('map').setView([41.8781, -87.6298], 13);
+
+    // Load saved connections
+fetch('/connections')
+    .then(response => response.json())
+    .then(data => {
+        data.forEach(conn => {
+            // Draw line
+            L.polyline([
+                [conn.from.lat, conn.from.lng],
+                [conn.to.lat, conn.to.lng]
+            ], {color: 'blue'}).addTo(map);
+
+            // Optionally add markers at endpoints
+            L.marker([conn.from.lat, conn.from.lng]).addTo(map);
+            L.marker([conn.to.lat, conn.to.lng]).addTo(map);
+
+            // Push into current in-memory points/connections
+            points.push([conn.to.lat, conn.to.lng]);
+            connections.push(conn);
+        });
+    })
+    .catch(error => console.error('Error loading saved connections:', error));
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: 'Map data © OpenStreetMap contributors'
+    }).addTo(map);
+
+    var points = [];
+    var connections = [];
+
+    map.on('click', function(e) {
+        var latlng = e.latlng;
+
+        L.marker([latlng.lat, latlng.lng]).addTo(map);
+
+        points.push([latlng.lat, latlng.lng]);
+
+        if (points.length > 1) {
+            var lastPoint = points[points.length - 2];
+            var newPoint = points[points.length - 1];
+
+            L.polyline([lastPoint, newPoint], {color: 'blue'}).addTo(map);
+
+            connections.push({
+                from: {lat: lastPoint[0], lng: lastPoint[1]},
+                to: {lat: newPoint[0], lng: newPoint[1]}
+            });
+        }
+    });
+
+    // When clicking save button, send the connections to Flask
+    document.getElementById('saveBtn').addEventListener('click', function() {
+        fetch('/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(connections)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Server says:', data);
+            alert('Connections saved successfully!');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    });
+</script>
+
+</body>
+</html>
