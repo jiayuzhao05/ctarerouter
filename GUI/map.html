@@ -22,12 +22,13 @@
 
 <script>
   // Initialize the map
-  var map = L.map('map').setView([0, 0], 2); // (latitude, longitude), zoom level
+  var map = L.map('map').setView([41.8781, -87.6298], 13); // Chicago
 
   // Add a base layer (OpenStreetMap)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: 'Map data © OpenStreetMap contributors',
-    maxZoom: 19,
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap & CartoDB',
+  subdomains: 'abcd',
+  maxZoom: 19
   }).addTo(map);
 </script>
 
