@@ -30,7 +30,26 @@
   subdomains: 'abcd',
   maxZoom: 19
   }).addTo(map);
-</script>
+
+  // Store clicked points
+  var points = [];
+
+    // Listen for clicks
+    map.on('click', function(e) {
+        var latlng = e.latlng; // This gives you an object with lat and lng
+
+        // Add marker to map
+        L.marker([latlng.lat, latlng.lng]).addTo(map);
+
+        // Store the point
+        points.push({
+            lat: latlng.lat,
+            lng: latlng.lng
+        });
+
+        console.log('Stored Points:', points);
+    });
+</script>  
 
 </body>
 </html>
