@@ -69,7 +69,7 @@ def generate_riders():
         riders.append(rider)
 
         if len(riders) % 500000 == 0:
-            print(f"已生成 {len(riders)} riders...")
+            print(f"generated {len(riders)} riders...")
 
     print("completed，saved in csv...")
     df_riders = pd.DataFrame(riders)
