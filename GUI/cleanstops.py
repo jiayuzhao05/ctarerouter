@@ -16,6 +16,11 @@ df.drop(columns='Location', inplace=True)
 # Example of your columns: STOP_ID, Location
 df = df.drop_duplicates(subset='STATION_NAME', keep='first').reset_index(drop=True)
 
+# REPLACE 'STATION_NAME' with numbers
+df['STATION_NAME'] = df.index
+
+df.rename(columns={'STATION_NAME':'station_id'}, inplace=True)
+
 # Connect to sqlite3 and upload dataframe to sqlite table
 conn = sqlite3.connect('locations.db')
 df.to_sql('locations',conn,if_exists='replace',index=False)
