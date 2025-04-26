@@ -1,40 +1,22 @@
 import pandas as pd
 from flask_sqlalchemy import SQLAlchemy
 from app import db, Station  # import your app's db and Station model
-import re
+import sqlite3
 
 # Load your CSV
-df = pd.read_csv('ctastops.csv')  # <-- change this to your CSV filename
+df = pd.read_csv('CTA_list_stops.csv')  # <-- change this to your CSV filename
+
+# subset only the stop name, line colors and location
+df = df[['STATION_NAME','Location']]
+
+# convert location to lat long
+df[['latitude', 'longitude']] = df['Location'].str.extract(r'\(([-\d.]+),\s*([-\d.]+)\)').astype(float)
+df.drop(columns='Location', inplace=True)
 
 # Example of your columns: STOP_ID, Location
-print(df.head())
+df = df.drop_duplicates(subset='STATION_NAME', keep='first').reset_index(drop=True)
 
-# Clean the Location field
-def extract_lat_lng(location_str):
-    # Expected format: "(lat, lng)"
-    match = re.match(r'\(([^,]+), ([^,]+)\)', location_str)
-    if match:
-        lat, lng = match.groups()
-        return float(lat), float(lng)
-    else:
-        return None, None
-
-# Optional: Clear existing stations first
-with db.session.begin():
-    Station.query.delete()
-
-# Insert cleaned data
-with db.session.begin():
-    for _, row in df.iterrows():
-        stop_id = int(row['STOP_ID'])
-        lat, lng = extract_lat_lng(row['Location'])
-
-        if lat is not None and lng is not None:
-            station = Station(
-                station_id=stop_id,
-                lat=lat,
-                lng=lng
-            )
-            db.session.add(station)
-
-print("✅ Stations loaded successfully into the database.")
+# Connect to sqlite3 and upload dataframe to sqlite table
+conn = sqlite3.connect('locations.db')
+df.to_sql('locations',conn,if_exists='replace',index=False)
+conn.close()
