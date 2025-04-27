@@ -19,7 +19,7 @@ TIME_PERIODS = [
 STATIONS_FILE = 'stations.csv'
 OUTPUT_FILE = 'output.csv'
 
-# --------------------------------------
+
 
 def generate_departure_time():
     period = random.choices(TIME_PERIODS, weights=[p[2] for p in TIME_PERIODS], k=1)[0]
